@@ -59,7 +59,6 @@ def coordinate_descent(f, x_0, eps=1e-6):
                 return f(xp)
             l, r = unimodalni(fi, 0.1, x[i])
             x[i] = gss(fi, l, r, eps)
-        print(x, f(x))
     return x
 
 def hook_jeeves(f, x_0, eps=1e-6):
@@ -93,8 +92,7 @@ def hook_jeeves(f, x_0, eps=1e-6):
             xp = xb
 
 
-def nelde_mead(f, x_0, alpha=1, beta=0.5, gamma=2, sigma=0.5, eps=1e-6, trace=False):
-    shift = 1
+def nelde_mead(f, x_0, alpha=1, beta=0.5, gamma=2, sigma=0.5, eps=1e-6, maxIter=1000, shift=1, trace=False):
     X = [x_0]
     n = x_0.shape[0]
     for i in range(n):
@@ -103,7 +101,9 @@ def nelde_mead(f, x_0, alpha=1, beta=0.5, gamma=2, sigma=0.5, eps=1e-6, trace=Fa
         X.append(xp)
     X = np.array(X)
 
-    for i in range(1000):
+    iter = 0
+    while np.max(np.linalg.norm(X - np.mean(X, axis=0), axis=0)) > eps and iter < maxIter:
+        iter += 1
         vals = list(map(f, X))
         if trace:
             print("X\n", X)
@@ -137,6 +137,7 @@ def nelde_mead(f, x_0, alpha=1, beta=0.5, gamma=2, sigma=0.5, eps=1e-6, trace=Fa
                 X[h] = Xr
     return X[0]
 
+
 class Call_counter:
     def __init__(self, f):
         self.f = f
@@ -148,6 +149,7 @@ class Call_counter:
 
     def count(self):
         return len(self.called)
+
 
 
 def f1(x):
