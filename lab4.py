@@ -84,7 +84,7 @@ class RealChromosone(Chromosone):
 
     def mutate(self, step=None, maxStep=None):
         sol = deepcopy(self)
-        r = 1 - np.random.uniform(size=self.degree)**(1 - step / maxStep)**self.b
+        r = 1 - np.random.uniform(size=1)**(1 - step / maxStep)**self.b
         noise = (self.u - self.l) * np.random.uniform(-r, +r, size=self.degree)
         sol.data = np.clip(sol.data + noise, self.l, self.u)
         return sol
@@ -107,7 +107,7 @@ params = {
     }
 }
 
-params2 = {
+params = {
     'n': 200,
     'chromosome': {
         'class': RealChromosone,
@@ -136,9 +136,12 @@ class GA(object):
 
     def _generation_opt(self, f, step, maxSteps):
 
-        elems = np.random.choice(self.population, size=2 * self.n, replace=True, p=self._props())
+        elems = np.random.choice(self.population, size=2 * (self.n - 2), replace=True, p=self._props())
 
-        for i in range(self.n):
+        self.population[-1] = self.population[np.argmin(self.vals)]
+        self.population[-2] = self.population[-1].mutate(step, maxSteps)
+
+        for i in range(self.n - 2):
             a = elems[2*i]
             b = elems[2*i + 1]
             self.population[i] = a.crossover(b).mutate(step, maxSteps)
@@ -153,7 +156,7 @@ class GA(object):
             self.population[idx[1]] = self.population[idx[0]].crossover(self.population[1]).mutate(step, maxSteps)
             self.vals[idx[1]] = f(self.population[idx[1]].eval())
 
-    def optimize(self, f, steps=20, full=False):
+    def optimize(self, f, steps=200, full=False):
         self.vals = np.array([f(x.eval()) for x in self.population]).ravel()
         for i in range(steps):
             self.pr(f, i)
