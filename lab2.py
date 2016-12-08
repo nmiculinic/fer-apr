@@ -178,7 +178,7 @@ f4_0 = np.array([5.1, 1.1])
 
 def f6(x):
     x2 = np.sum(np.square(x))
-    return 0.5 + (math.sin(math.sqrt(x2)) - 0.5)/(1 + 0.001*x2)**2
+    return 0.5 + (math.sin(math.sqrt(x2))**2 - 0.5)/(1 + 0.001*x2)**2
 
 def f(x):
     return (x - 2)**2

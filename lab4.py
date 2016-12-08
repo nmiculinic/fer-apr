@@ -91,7 +91,7 @@ class RealChromosone(Chromosone):
 
 
 
-params = {
+params_old = {
     'n': 200,
     'chromosome': {
         'class': BinaryChromosone,
@@ -118,8 +118,14 @@ params = {
             'crossover_fn': 'uniform',
             'b': 5
         }
+    },
+    'selection': 'generation',
+    'probs': {
+        'type': 'softmax',
+        'a': 1
     }
 }
+
 
 class GA(object):
     def __init__(self, params):
@@ -127,46 +133,68 @@ class GA(object):
         ch_data = params['chromosome']
         self.population = [
             ch_data['class'](ch_data['params']) for _ in range(self.n)]
+        selection_fns = {
+            'generation': self._generation_opt,
+            'tournament': self._tournament_opt
+        }
+        self.selection_fn = selection_fns[params['selection']]
 
-    def _props(self):
+        if params['probs']['type'] == 'simple':
+            self.probs_fn = lambda: self._probs(params['probs'].get('a', 1e-4))
+        elif params['probs']['type'] == 'softmax':
+            self.probs_fn = lambda: self._probs_softmax(params['probs']['a'])
+        else:
+            raise ValueError("probs need to be defined")
+
+    def _probs(self, a):
         probs = np.copy(self.vals)
-        probs = (np.max(probs) - probs)/np.max(probs)
+        probs = (np.max(probs) - probs + a) / np.max(probs)  # Small epsilon for numerics
+        probs /= np.sum(probs)
+        return probs
+
+    def _probs_softmax(self, a):
+        probs = np.copy(self.vals)
+        probs = np.exp(a * probs - np.max(a * probs))
         probs /= np.sum(probs)
         return probs
 
     def _generation_opt(self, f, step, maxSteps):
 
-        elems = np.random.choice(self.population, size=2 * (self.n - 2), replace=True, p=self._props())
+        elems = np.random.choice(self.population, size=2 * (self.n - 2), replace=True, p=self.probs_fn())
 
         self.population[-1] = self.population[np.argmin(self.vals)]
         self.population[-2] = self.population[-1].mutate(step, maxSteps)
 
         for i in range(self.n - 2):
-            a = elems[2*i]
-            b = elems[2*i + 1]
+            a = elems[2 * i]
+            b = elems[2 * i + 1]
             self.population[i] = a.crossover(b).mutate(step, maxSteps)
         self.vals = np.array([f(x.eval()) for x in self.population]).ravel()
 
     def _tournament_opt(self, f, step, maxSteps):
         for _ in range(self.n):
-            idx = np.random.choice(np.arange(self.n), size=3, replace=False, p=self._props())
+            idx = np.random.choice(np.arange(self.n), size=3, replace=False, p=self.probs_fn())
             order = np.argsort(self.vals[idx])
             idx = idx[order]
 
             self.population[idx[1]] = self.population[idx[0]].crossover(self.population[1]).mutate(step, maxSteps)
             self.vals[idx[1]] = f(self.population[idx[1]].eval())
 
-    def optimize(self, f, steps=200, full=False):
+    def optimize(self, f, steps=200, full=False, trace=True):
         self.vals = np.array([f(x.eval()) for x in self.population]).ravel()
+        top_val = [np.min(self.vals)]
         for i in range(steps):
-            self.pr(f, i)
-            self._generation_opt(f, i, steps)
-            # self._tournament_opt(f, i, steps)
-        self.pr(f, steps, full)
+            if trace:
+                self.pr(f, i)
+            self.selection_fn(f, i, steps)
+            top_val.append(np.min(self.vals))
+        if trace:
+            self.pr(f, steps, full)
+        return top_val
 
     def pr(self, f, step=None, full=False):
         if step is not None:
-            print("Step: ", step)
+            print("Epoh: ", step)
         if full:
             for x in self.population:
                 print(x.eval(), f(x.eval()))
@@ -175,5 +203,6 @@ class GA(object):
             print(self.population[x].eval(), self.vals[x])
 
 
-g = GA(params)
-g.optimize(lambda x: np.sum(x**2 + 4), full=False)
+if __name__ == "__main__":
+    g = GA(params)
+    g.optimize(lambda x: np.sum(x**2 + 4), full=False)
